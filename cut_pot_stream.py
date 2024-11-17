@@ -130,10 +130,61 @@ st.sidebar.subheader("Boards")
 boards_input = st.sidebar.text_area(
     "Enter board dimensions and quantities (e.g., 100x200x1, 150x150x2):", "100x200x1, 150x150x2"
 )
-boards = [
-    tuple(map(int, b.strip().split("x"))) if b.strip() else None
-    for b in boards_input.split(",")
-]
+boards = []
+for b in boards_input.split(","):
+    b = b.strip()
+    if b:
+        try:
+            values = list(map(int, b.split("x")))
+            if len(values) == 3:
+                boards.append(tuple(values))  # Ensure 3 values: width, height, quantity
+            else:
+                st.error(f"Invalid board input: {b}. Please use the format 'width x height x quantity'.")
+        except ValueError:
+            st.error(f"Invalid board input: {b}. Please ensure all values are integers and in the correct format.")
+            continue
+
+st.sidebar.subheader("Parts")
+parts_input = st.sidebar.text_area(
+    "Enter parts (width x height x quantity, e.g., 50x50x2, 40x80x1):",
+    "50x50x2, 40x80x1"
+)
+
+# Parsing parts input
+parts = []
+for p in parts_input.split(","):
+    p = p.strip()
+    if p:
+        try:
+            values = list(map(int, p.split("x")))
+            if len(values) == 3:
+                parts.append(tuple(values))  # Ensure 3 values: width, height, quantity
+            else:
+                st.error(f"Invalid part input: {p}. Please use the format 'width x height x quantity'.")
+        except ValueError:
+            st.error(f"Invalid part input: {p}. Please ensure all values are integers and in the correct format.")
+            continue
+
+blade_thickness = st.sidebar.selectbox("Blade Thickness (mm):", [2, 3, 4])
+
+export_pdf = st.sidebar.checkbox("Export results as PDF")
+
+if st.sidebar.button("Optimize"):
+    try:
+        solution = optimize_cuts(boards, parts, blade_thickness)
+        
+        # Display results
+        st.subheader("Optimization Results")
+        for idx, board_data in enumerate(solution):
+            st.write(f"**Board {idx + 1}:** {board_data['board'][0]} x {board_data['board'][1]}")
+            st.write(f"Parts placed: {len(board_data['cuts'])}")
+            if not board_data["cuts"]:
+                st.write("No parts placed.")
+        
+        visualize_solution(solution, export_pdf)
+
+    except Exception as e:
+        st.error(f"An error occurred during optimization: {e}")
 
 st.sidebar.subheader("Parts")
 parts_input = st.sidebar.text_area(
