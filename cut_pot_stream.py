@@ -63,7 +63,11 @@ def optimize_cuts(boards, parts, blade_thickness):
     Returns:
         list: A list of boards with detailed cut configurations.
     """
-    from operator import itemgetter
+    # Validate inputs
+    if not all(len(board) == 3 for board in boards):
+        raise ValueError("Each board must be a tuple of (width, height, quantity).")
+    if not all(len(part) == 3 for part in parts):
+        raise ValueError("Each part must be a tuple of (width, height, quantity).")
     
     # Expand parts based on their quantities
     expanded_parts = []
