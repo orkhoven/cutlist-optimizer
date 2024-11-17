@@ -4,118 +4,69 @@ import matplotlib.patches as patches
 from io import BytesIO
 from matplotlib.backends.backend_pdf import PdfPages
 
-# Configure Streamlit page
-st.set_page_config(
-    page_title="Cutlist Optimizer",
-    page_icon="🪚",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
+# Set up Streamlit page
+st.set_page_config(page_title="Cutlist Optimizer", page_icon="🪚")
 
-# Add custom CSS for background color and styling
-st.markdown(
-    """
-    <style>
-    body {
-        background-color: #f7f9fc;
-        color: #333;
-    }
-    .sidebar .sidebar-content {
-        background-color: #eef3f7;
-    }
-    .stButton>button {
-        background-color: #2b8a3e;
-        color: white;
-        border: none;
-        padding: 0.5em 1em;
-        font-size: 16px;
-        border-radius: 5px;
-        cursor: pointer;
-    }
-    .stButton>button:hover {
-        background-color: #276a31;
-    }
-    h1, h2, h3 {
-        color: #2b6777;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
+# Helper function to parse inputs
+def parse_input(input_string):
+    items = input_string.strip().split(",")
+    parsed_items = []
+    for item in items:
+        try:
+            dimensions = list(map(int, item.split("x")))
+            if len(dimensions) == 3:
+                parsed_items.append(tuple(dimensions))
+            else:
+                st.error(f"Invalid input: '{item}', expected 3 values.")
+        except ValueError:
+            st.error(f"Invalid input: '{item}', please provide integers in the format widthxheightxquantity.")
+    return parsed_items
 
+# Greedy optimization function
 def greedy_cutting(boards, parts, blade_thickness):
-    """
-    A more robust approach to optimize the cutting of parts from boards.
-    
-    Args:
-        boards (list): List of boards (width, height, quantity).
-        parts (list): List of parts (width, height, quantity).
-        blade_thickness (int): Thickness of the blade.
-    
-    Returns:
-        list: A list of boards with detailed cut configurations.
-    """
     solution = []
-    
     for board_width, board_height, board_quantity in boards:
         for _ in range(board_quantity):
             board_usage = {"board": (board_width, board_height), "cuts": []}
             available_width = board_width
             available_height = board_height
-            
-            for i, (part_width, part_height, part_quantity) in enumerate(parts):
-                # Adjust for blade thickness
+            for part_width, part_height, part_quantity in sorted(parts, key=lambda x: x[0] * x[1], reverse=True):
                 part_width -= blade_thickness
                 part_height -= blade_thickness
-
-                # Place parts as long as they fit
                 if part_width <= available_width and part_height <= available_height and part_quantity > 0:
-                    # Place the part
                     board_usage["cuts"].append({"part": (part_width, part_height)})
-                    available_height -= part_height  # Stack parts vertically
-                    
-                    # Update parts quantity
-                    parts[i] = (part_width, part_height, part_quantity - 1)
-
+                    available_height -= part_height
+                    parts = [(pw, ph, pq-1) if (pw == part_width and ph == part_height) else (pw, ph, pq) for pw, ph, pq in parts]
             solution.append(board_usage)
-    
     return solution
 
-
-# Visualization with PDF export
+# Visualization function
 def visualize_solution(solution, export_pdf=False):
     fig, ax = plt.subplots(len(solution), 1, figsize=(8, 5 * len(solution)))
     if len(solution) == 1:
         ax = [ax]
 
     for idx, board_data in enumerate(solution):
-        board_width, board_height, _ = board_data['board']
+        board_width, board_height, _ = board_data["board"]
         ax[idx].set_xlim(0, board_width)
         ax[idx].set_ylim(0, board_height)
         ax[idx].set_title(f"Board {idx + 1}: {board_width} x {board_height}")
         ax[idx].set_aspect('equal')
         ax[idx].invert_yaxis()
-        ax[idx].set_xlabel("Width")
-        ax[idx].set_ylabel("Height")
         
-        # Draw board outline
         ax[idx].add_patch(patches.Rectangle((0, 0), board_width, board_height, edgecolor="black", fill=False, lw=2))
         
-        # Draw cuts (parts placed on board)
-        cuts = board_data["cuts"] if len(board_data["cuts"]) > 0 else []
+        cuts = board_data["cuts"]
+        y_offset = 0
+        for cut in cuts:
+            part_width, part_height = cut["part"]
+            ax[idx].add_patch(patches.Rectangle((0, y_offset), part_width, part_height, edgecolor="blue", facecolor="lightblue"))
+            ax[idx].text(part_width / 2, y_offset + part_height / 2, f"{part_width}x{part_height}",
+                         color="black", ha="center", va="center")
+            y_offset += part_height  # Stack parts vertically
         
-        if cuts:
-            for cut in cuts:
-                part_width, part_height = cut["part"]
-                x, y = 0, 0  # Position logic can be enhanced for better fitting
-                ax[idx].add_patch(patches.Rectangle((x, y), part_width, part_height, edgecolor="blue", facecolor="lightblue"))
-                ax[idx].text(x + part_width / 2, y + part_height / 2, f"{part_width}x{part_height}",
-                             color="black", ha="center", va="center")
-        else:
-            ax[idx].text(board_width / 2, board_height / 2, "No parts placed", ha="center", va="center", fontsize=12, color="red")
-    
     st.pyplot(fig)
-    
+
     if export_pdf:
         pdf_buffer = BytesIO()
         with PdfPages(pdf_buffer) as pdf:
@@ -129,8 +80,7 @@ def visualize_solution(solution, export_pdf=False):
             mime="application/pdf",
         )
 
-
-# Streamlit App
+# Streamlit app layout
 st.title("Cutlist Optimizer 🪚")
 
 st.sidebar.header("Inputs")
@@ -139,58 +89,21 @@ boards_input = st.sidebar.text_area(
     "Enter board dimensions and quantities (e.g., 100x200x1, 150x150x2):", "100x200x1, 150x150x2"
 )
 
-# Parsing boards input
-boards = []
-for b in boards_input.split(","):
-    b = b.strip()
-    if b:
-        try:
-            values = list(map(int, b.split("x")))
-            if len(values) == 3:
-                boards.append(tuple(values))  # Ensure exactly 3 values: width, height, quantity
-            else:
-                st.error(f"Invalid board input: '{b}'. Please use the format 'width x height x quantity'.")
-        except ValueError:
-            st.error(f"Invalid board input: '{b}'. Ensure all values are integers and in the correct format.")
-            continue
+boards = parse_input(boards_input)
 
-# Parsing parts input
+st.sidebar.subheader("Parts")
 parts_input = st.sidebar.text_area(
-    "Enter parts (width x height x quantity, e.g., 50x50x2, 40x80x1):",
-    "50x50x2, 40x80x1"
+    "Enter parts (width x height x quantity, e.g., 50x50x2, 40x80x1):", "50x50x2, 40x80x1"
 )
 
-parts = []
-for p in parts_input.split(","):
-    p = p.strip()
-    if p:
-        try:
-            values = list(map(int, p.split("x")))
-            if len(values) == 3:
-                parts.append(tuple(values))  # Ensure exactly 3 values: width, height, quantity
-            else:
-                st.error(f"Invalid part input: '{p}'. Please use the format 'width x height x quantity'.")
-        except ValueError:
-            st.error(f"Invalid part input: '{p}'. Ensure all values are integers and in the correct format.")
-            continue
+parts = parse_input(parts_input)
 
-# Checking if the inputs are empty after parsing
-if not boards:
-    st.error("No valid boards input detected. Please check your boards input.")
-if not parts:
-    st.error("No valid parts input detected. Please check your parts input.")
-
-st.sidebar.subheader("Blade Thickness")
 blade_thickness = st.sidebar.selectbox("Blade Thickness (mm):", [2, 3, 4])
 
-st.sidebar.subheader("Export Options")
 export_pdf = st.sidebar.checkbox("Export results as PDF")
 
 if st.sidebar.button("Optimize"):
     try:
-        if not boards or not parts:
-            raise ValueError("Invalid input data. Please check the boards and parts input fields.")
-        
         solution = greedy_cutting(boards, parts, blade_thickness)
         
         # Display results
