@@ -145,6 +145,9 @@ for b in boards_input.split(","):
             st.error(f"Invalid board input: '{b}'. Ensure all values are integers and in the correct format.")
             continue
 
+# Debugging boards input
+st.write("Parsed boards:", boards)
+
 # Add input for parts directly
 parts_input = st.sidebar.text_area(
     "Enter parts (width x height x quantity, e.g., 50x50x2, 40x80x1):",
@@ -166,6 +169,8 @@ for p in parts_input.split(","):
             st.error(f"Invalid part input: '{p}'. Ensure all values are integers and in the correct format.")
             continue
 
+# Debugging parts input
+st.write("Parsed parts:", parts)
 st.sidebar.subheader("Blade Thickness")
 blade_thickness = st.sidebar.selectbox("Blade Thickness (mm):", [2, 3, 4])
 
