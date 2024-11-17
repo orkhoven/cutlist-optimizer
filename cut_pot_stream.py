@@ -191,7 +191,7 @@ boards_input = st.sidebar.text_area(
     "Enter board dimensions and quantities (e.g., 100x200x1, 150x150x2):", "100x200x1, 150x150x2"
 )
 boards = [
-    tuple(map(int, b.strip().split("x")) if b.strip() else None
+    tuple(map(int, b.strip().split("x"))) if b.strip() else None
     for b in boards_input.split(",")
 ]
 
