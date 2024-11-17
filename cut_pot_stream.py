@@ -130,6 +130,8 @@ st.sidebar.subheader("Boards")
 boards_input = st.sidebar.text_area(
     "Enter board dimensions and quantities (e.g., 100x200x1, 150x150x2):", "100x200x1, 150x150x2"
 )
+
+# Parsing boards input
 boards = []
 for b in boards_input.split(","):
     b = b.strip()
@@ -137,18 +139,12 @@ for b in boards_input.split(","):
         try:
             values = list(map(int, b.split("x")))
             if len(values) == 3:
-                boards.append(tuple(values))  # Ensure 3 values: width, height, quantity
+                boards.append(tuple(values))  # Ensure exactly 3 values: width, height, quantity
             else:
-                st.error(f"Invalid board input: {b}. Please use the format 'width x height x quantity'.")
+                st.error(f"Invalid board input: '{b}'. Please use the format 'width x height x quantity'.")
         except ValueError:
-            st.error(f"Invalid board input: {b}. Please ensure all values are integers and in the correct format.")
+            st.error(f"Invalid board input: '{b}'. Ensure all values are integers and in the correct format.")
             continue
-
-st.sidebar.subheader("Parts")
-parts_input = st.sidebar.text_area(
-    "Enter parts (width x height x quantity, e.g., 50x50x2, 40x80x1):",
-    "50x50x2, 40x80x1"
-)
 
 # Parsing parts input
 parts = []
@@ -158,12 +154,20 @@ for p in parts_input.split(","):
         try:
             values = list(map(int, p.split("x")))
             if len(values) == 3:
-                parts.append(tuple(values))  # Ensure 3 values: width, height, quantity
+                parts.append(tuple(values))  # Ensure exactly 3 values: width, height, quantity
             else:
-                st.error(f"Invalid part input: {p}. Please use the format 'width x height x quantity'.")
+                st.error(f"Invalid part input: '{p}'. Please use the format 'width x height x quantity'.")
         except ValueError:
-            st.error(f"Invalid part input: {p}. Please ensure all values are integers and in the correct format.")
+            st.error(f"Invalid part input: '{p}'. Ensure all values are integers and in the correct format.")
             continue
+
+
+
+st.sidebar.subheader("Parts")
+parts_input = st.sidebar.text_area(
+    "Enter parts (width x height x quantity, e.g., 50x50x2, 40x80x1):",
+    "50x50x2, 40x80x1"
+)
 
 blade_thickness = st.sidebar.selectbox("Blade Thickness (mm):", [2, 3, 4])
 
