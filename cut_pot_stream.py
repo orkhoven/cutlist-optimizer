@@ -7,6 +7,7 @@
 import streamlit as st
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+from itertools import permutations
 from io import BytesIO
 from matplotlib.backends.backend_pdf import PdfPages
 
@@ -160,14 +161,12 @@ def visualize_solution(solution, export_pdf=False):
         # Draw board
         ax[idx].add_patch(patches.Rectangle((0, 0), board_width, board_height, edgecolor="black", fill=False, lw=2))
         
-        # Ensure there are cuts to visualize
-        cuts = board_data["details"][0]["cuts"] if len(board_data["details"]) > 0 and len(board_data["details"][0]["cuts"]) > 0 else []
-
-        # Draw cuts (parts) if they exist
+        # Draw cuts (parts placed on board)
+        cuts = board_data["details"][0]["cuts"] if len(board_data["details"]) > 0 else []
+        
         if cuts:
             for cut in cuts:
-                part_width, part_height = cut["width"], cut["height"]
-                x, y = cut["x"], cut["y"]
+                x, y, part_width, part_height = cut["x"], cut["y"], cut["width"], cut["height"]
                 ax[idx].add_patch(patches.Rectangle((x, y), part_width, part_height, edgecolor="blue", facecolor="lightblue"))
                 ax[idx].text(x + part_width / 2, y + part_height / 2, f"{part_width}x{part_height}",
                              color="black", ha="center", va="center")
@@ -198,7 +197,7 @@ boards_input = st.sidebar.text_area(
     "Enter board dimensions and quantities (e.g., 100x200x1, 150x150x2):", "100x200x1, 150x150x2"
 )
 boards = [
-    tuple(map(int, b.strip().split("x")))
+    tuple(map(int, b.strip().split("x")) if b.strip() else None
     for b in boards_input.split(",")
 ]
 
@@ -208,7 +207,7 @@ parts_input = st.sidebar.text_area(
     "50x50x2, 40x80x1"
 )
 parts = [
-    tuple(map(int, p.strip().split("x")))
+    tuple(map(int, p.strip().split("x")) if p.strip() else None
     for p in parts_input.split(",")
 ]
 
@@ -227,15 +226,12 @@ if st.sidebar.button("Optimize"):
         for idx, board_data in enumerate(solution):
             st.write(f"**Board {idx + 1}:** {board_data['board'][0]} x {board_data['board'][1]} (Quantity: {board_data['board'][2]})")
             st.write("Parts placed:")
-            if len(board_data["details"]) > 0:
-                for cut in board_data["details"][0]["cuts"]:
-                    part_width, part_height, (x, y) = cut["width"], cut["height"], (cut["x"], cut["y"])
-                    st.write(f" - {part_width} x {part_height} at position ({x}, {y})")
+            for cut in board_data["details"][0]["cuts"]:
+                st.write(f" - {cut['width']} x {cut['height']} at position ({cut['x']}, {cut['y']})")
         
-        # Visualize results and export if needed
-        st.subheader("Visualization")
+        # Visualize results and export PDF if needed
         visualize_solution(solution, export_pdf=export_pdf)
-        
+
     except Exception as e:
-        st.error(f"Error in optimization: {e}")
+        st.error(f"Error: {e}")
 
