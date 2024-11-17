@@ -161,9 +161,10 @@ def visualize_solution(solution, export_pdf=False):
         # Draw board
         ax[idx].add_patch(patches.Rectangle((0, 0), board_width, board_height, edgecolor="black", fill=False, lw=2))
         
-        # Draw parts
-        for part in board_data["parts"]:
-            part_width, part_height, (x, y) = part
+        # Draw cuts (not parts)
+        for cut in board_data["details"][0]["cuts"]:  # Now accessing 'cuts' inside the board usage
+            part_width, part_height = cut["width"], cut["height"]
+            x, y = cut["x"], cut["y"]
             ax[idx].add_patch(patches.Rectangle((x, y), part_width, part_height, edgecolor="blue", facecolor="lightblue"))
             ax[idx].text(x + part_width / 2, y + part_height / 2, f"{part_width}x{part_height}",
                          color="black", ha="center", va="center")
@@ -221,8 +222,8 @@ if st.sidebar.button("Optimize"):
         for idx, board_data in enumerate(solution):
             st.write(f"**Board {idx + 1}:** {board_data['board'][0]} x {board_data['board'][1]} (Quantity: {board_data['board'][2]})")
             st.write("Parts placed:")
-            for part in board_data["parts"]:
-                part_width, part_height, (x, y) = part
+            for cut in board_data["details"][0]["cuts"]:
+                part_width, part_height, (x, y) = cut["width"], cut["height"], (cut["x"], cut["y"])
                 st.write(f" - {part_width} x {part_height} at position ({x}, {y})")
         
         # Visualize results and export if needed
