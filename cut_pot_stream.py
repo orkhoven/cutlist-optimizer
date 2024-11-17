@@ -174,6 +174,12 @@ for p in parts_input.split(","):
             st.error(f"Invalid part input: '{p}'. Ensure all values are integers and in the correct format.")
             continue
 
+# Checking if the inputs are empty after parsing
+if not boards:
+    st.error("No valid boards input detected. Please check your boards input.")
+if not parts:
+    st.error("No valid parts input detected. Please check your parts input.")
+
 st.sidebar.subheader("Blade Thickness")
 blade_thickness = st.sidebar.selectbox("Blade Thickness (mm):", [2, 3, 4])
 
@@ -182,6 +188,9 @@ export_pdf = st.sidebar.checkbox("Export results as PDF")
 
 if st.sidebar.button("Optimize"):
     try:
+        if not boards or not parts:
+            raise ValueError("Invalid input data. Please check the boards and parts input fields.")
+        
         solution = greedy_cutting(boards, parts, blade_thickness)
         
         # Display results
