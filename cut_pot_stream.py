@@ -236,4 +236,4 @@ if st.sidebar.button("Optimize"):
         visualize_solution(solution, export_pdf=export_pdf)
 
     except Exception as e:
-        st.error(f"Error: {e}")
+        st.error(f"An error occurred: {str(e)}")
