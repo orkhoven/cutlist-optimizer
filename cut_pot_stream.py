@@ -81,7 +81,7 @@ def optimize_cuts(boards, parts, blade_thickness):
 
         for _ in range(board_quantity):
             current_board = {"width": board_width, "height": board_height, "cuts": []}
-            spaces = [{"x": 0, "y": 0, "width": board_width, "height": board_height}]
+            spaces = [{"x": 0, "y": 0, "width": board_width, "height": board_height}]  # Initial space for cuts
 
             remaining_parts = []
 
@@ -156,8 +156,10 @@ def visualize_solution(solution, export_pdf=False):
         ax[idx].add_patch(patches.Rectangle((0, 0), board_width, board_height, edgecolor="black", fill=False, lw=2))
         
         # Draw cuts (parts placed on board)
-        cuts = board_data["details"][0]["cuts"] if len(board_data["details"]) > 0 else []
-        
+        cuts = []
+        for cut in board_data["details"]:
+            cuts.extend(cut["cuts"])
+
         if cuts:
             for cut in cuts:
                 x, y, part_width, part_height = cut["x"], cut["y"], cut["width"], cut["height"]
@@ -191,8 +193,7 @@ boards_input = st.sidebar.text_area(
     "Enter board dimensions and quantities (e.g., 100x200x1, 150x150x2):", "100x200x1, 150x150x2"
 )
 boards = [
-    tuple(map(int, b.strip().split("x")) if b.strip() else None
-    for b in boards_input.split(",")
+    tuple(map(int, b.strip().split("x"))) for b in boards_input.split(",") if b.strip()
 ]
 
 st.sidebar.subheader("Parts")
@@ -229,8 +230,9 @@ if st.sidebar.button("Optimize"):
         for idx, board_data in enumerate(solution):
             st.write(f"**Board {idx + 1}:** {board_data['board'][0]} x {board_data['board'][1]} (Quantity: {board_data['board'][2]})")
             st.write("Parts placed:")
-            for cut in board_data["details"][0]["cuts"]:
-                st.write(f" - {cut['width']} x {cut['height']} at position ({cut['x']}, {cut['y']})")
+            for cut in board_data["details"]:
+                for cut_detail in cut["cuts"]:
+                    st.write(f" - {cut_detail['width']} x {cut_detail['height']} at position ({cut_detail['x']}, {cut_detail['y']})")
         
         # Visualize results and export PDF if needed
         visualize_solution(solution, export_pdf=export_pdf)
