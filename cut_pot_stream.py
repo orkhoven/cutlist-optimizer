@@ -61,17 +61,25 @@ def greedy_cutting(boards, parts, blade_thickness):
             board_usage = {"board": (board_width, board_height), "cuts": []}
             available_width = board_width
             available_height = board_height
-            for part_width, part_height, part_quantity in parts:
-                # Adjust for blade thickness
-                part_width -= blade_thickness
-                part_height -= blade_thickness
-                if part_width <= available_width and part_height <= available_height and part_quantity > 0:
-                    # Place the part on the board
-                    board_usage["cuts"].append({"part": (part_width, part_height)})
-                    available_height -= part_height  # Assume parts are placed vertically
-                    parts = [(pw, ph, pq-1) if (pw == part_width and ph == part_height) else (pw, ph, pq) for pw, ph, pq in parts]
+            for idx, (part_width, part_height, part_quantity) in enumerate(parts):
+                if part_quantity > 0:  # Check if there are parts available
+                    # Adjust for blade thickness
+                    part_width -= blade_thickness
+                    part_height -= blade_thickness
+
+                    # Check if part fits on the board
+                    if part_width <= available_width and part_height <= available_height:
+                        # Place the part on the board
+                        board_usage["cuts"].append({"part": (part_width, part_height)})
+
+                        # Reduce available space and update part quantity
+                        available_height -= part_height  # Assume parts are placed vertically
+                        parts[idx] = (part_width, part_height, part_quantity - 1)  # Update part quantity
+                else:
+                    continue  # Skip if no quantity left for this part
             solution.append(board_usage)
     return solution
+
 
 
 # Visualization with PDF export
