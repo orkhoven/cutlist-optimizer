@@ -121,7 +121,6 @@ def visualize_solution(solution, export_pdf=False):
             mime="application/pdf",
         )
 
-
 # Streamlit App
 st.title("Cutlist Optimizer 🪚")
 
@@ -146,6 +145,12 @@ for b in boards_input.split(","):
             st.error(f"Invalid board input: '{b}'. Ensure all values are integers and in the correct format.")
             continue
 
+# Add input for parts directly
+parts_input = st.sidebar.text_area(
+    "Enter parts (width x height x quantity, e.g., 50x50x2, 40x80x1):",
+    "50x50x2, 40x80x1"
+)
+
 # Parsing parts input
 parts = []
 for p in parts_input.split(","):
@@ -160,13 +165,8 @@ for p in parts_input.split(","):
         except ValueError:
             st.error(f"Invalid part input: '{p}'. Ensure all values are integers and in the correct format.")
             continue
-parts_input = st.sidebar.text_area(
-    "Enter parts (width x height x quantity, e.g., 50x50x2, 40x80x1):",
-    "50x50x2, 40x80x1"
-)
 
-st.sidebar.subheader("Parts")
-
+st.sidebar.subheader("Blade Thickness")
 blade_thickness = st.sidebar.selectbox("Blade Thickness (mm):", [2, 3, 4])
 
 export_pdf = st.sidebar.checkbox("Export results as PDF")
@@ -187,3 +187,4 @@ if st.sidebar.button("Optimize"):
 
     except Exception as e:
         st.error(f"An error occurred during optimization: {e}")
+
