@@ -1,9 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[ ]:
-
-
 import streamlit as st
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
@@ -243,4 +237,3 @@ if st.sidebar.button("Optimize"):
 
     except Exception as e:
         st.error(f"Error: {e}")
-
