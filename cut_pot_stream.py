@@ -62,13 +62,12 @@ def optimize_cuts(boards, parts, blade_thickness):
     # Flatten parts based on their quantities
     expanded_parts = []
     for part in parts:
-        expanded_parts.extend([(part[0], part[1])] * part[2])
-
+        expanded_parts.extend([part[:2]] * part[2])  # Repeat each part based on quantity
+    
     # Create variables for each part-board combination
     part_board_vars = {}
     for board_idx, (board_width, board_height, board_quantity) in enumerate(boards):
-        for part_idx, part in enumerate(expanded_parts):
-            part_width, part_height = part
+        for part_idx, (part_width, part_height) in enumerate(expanded_parts):
             for i in range(board_quantity):
                 var_name = f"part_{part_idx}_board_{board_idx}_slot_{i}"
                 part_board_vars[var_name] = LpVariable(var_name, cat="Binary")
@@ -78,7 +77,7 @@ def optimize_cuts(boards, parts, blade_thickness):
 
     # Constraints to ensure parts are placed on available boards
     for part_idx, (part_width, part_height) in enumerate(expanded_parts):
-        part_quantity = parts[part_idx][2]
+        part_quantity = parts[part_idx][2]  # Original quantity of part
         prob += lpSum(part_board_vars[f"part_{part_idx}_board_{board_idx}_slot_{i}"]
                       for board_idx, (board_width, board_height, board_quantity) in enumerate(boards)
                       for i in range(board_quantity)) == part_quantity, f"Part_{part_idx}_placed"
@@ -101,15 +100,17 @@ def optimize_cuts(boards, parts, blade_thickness):
         for i in range(board_quantity):
             for part_idx, part in enumerate(expanded_parts):
                 var_name = f"part_{part_idx}_board_{board_idx}_slot_{i}"
-                try:
-                    if part_board_vars[var_name].varValue == 1:
-                        cut_info = {"part": expanded_parts[part_idx], "slot": i}
-                        board_usage["cuts"].append(cut_info)
-                except KeyError:
-                    pass  # If the variable is missing, continue without crashing
+                if var_name in part_board_vars:
+                    try:
+                        if part_board_vars[var_name].varValue == 1:
+                            cut_info = {"part": part, "slot": i}
+                            board_usage["cuts"].append(cut_info)
+                    except KeyError:
+                        pass  # Skip if the variable is not found
         solution.append(board_usage)
 
     return solution
+
 
 
 
