@@ -67,10 +67,10 @@ def optimize_cuts(boards, parts, blade_thickness):
     # Create variables for each part-board combination
     part_board_vars = {}
     for idx, (board_width, board_height, board_quantity) in enumerate(boards):
-        for part in expanded_parts:
+        for part_idx, part in enumerate(expanded_parts):
             part_width, part_height = part
             for i in range(board_quantity):
-                var_name = f"part_{expanded_parts.index(part)}_board_{idx}_slot_{i}"
+                var_name = f"part_{part_idx}_board_{idx}_slot_{i}"
                 part_board_vars[var_name] = LpVariable(var_name, cat="Binary")
 
     # Objective function: Maximize the number of cuts placed on boards
@@ -87,10 +87,9 @@ def optimize_cuts(boards, parts, blade_thickness):
     for board_idx, (board_width, board_height, board_quantity) in enumerate(boards):
         for i in range(board_quantity):
             for part_idx, (part_width, part_height) in enumerate(expanded_parts):
-                for var_name in part_board_vars:
-                    # Check if part fits within the board size and blade thickness
-                    if part_width + blade_thickness <= board_width and part_height + blade_thickness <= board_height:
-                        prob += part_board_vars[var_name] <= 1, f"Fit_Constraint_{var_name}"
+                var_name = f"part_{part_idx}_board_{board_idx}_slot_{i}"
+                if part_width + blade_thickness <= board_width and part_height + blade_thickness <= board_height:
+                    prob += part_board_vars[var_name] <= 1, f"Fit_Constraint_{var_name}"
 
     # Solve the problem
     prob.solve()
@@ -101,15 +100,14 @@ def optimize_cuts(boards, parts, blade_thickness):
         board_usage = {"board": (board_width, board_height), "cuts": []}
         for i in range(board_quantity):
             for part_idx, (part_width, part_height) in enumerate(expanded_parts):
-                for var_name in part_board_vars:
-                    if part_board_vars[var_name].varValue == 1:
-                        # Parse part and add the cut to the board usage
-                        part_idx = int(var_name.split("_")[1])
-                        cut_info = {"part": expanded_parts[part_idx], "slot": i}
-                        board_usage["cuts"].append(cut_info)
+                var_name = f"part_{part_idx}_board_{board_idx}_slot_{i}"
+                if part_board_vars[var_name].varValue == 1:
+                    cut_info = {"part": expanded_parts[part_idx], "slot": i}
+                    board_usage["cuts"].append(cut_info)
         solution.append(board_usage)
 
     return solution
+
 
 
 # Visualization with PDF export
