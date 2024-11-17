@@ -160,12 +160,12 @@ for p in parts_input.split(","):
         except ValueError:
             st.error(f"Invalid part input: '{p}'. Ensure all values are integers and in the correct format.")
             continue
-
-st.sidebar.subheader("Parts")
 parts_input = st.sidebar.text_area(
     "Enter parts (width x height x quantity, e.g., 50x50x2, 40x80x1):",
     "50x50x2, 40x80x1"
 )
+
+st.sidebar.subheader("Parts")
 
 blade_thickness = st.sidebar.selectbox("Blade Thickness (mm):", [2, 3, 4])
 
