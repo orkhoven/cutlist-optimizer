@@ -1,7 +1,6 @@
 import streamlit as st
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
-from itertools import permutations
 from io import BytesIO
 from matplotlib.backends.backend_pdf import PdfPages
 
@@ -46,35 +45,25 @@ st.markdown(
 
 def optimize_cuts(boards, parts, blade_thickness):
     """
-    Optimizes the cutting of parts from boards using a 2D bin-packing approach.
-    Minimizes waste and maximizes board utilization.
-    
+    Optimizes the cutting of parts from boards using a simplified 2D bin-packing approach.
     Args:
         boards (list): List of boards as (width, height, quantity).
         parts (list): List of parts as (width, height, quantity).
         blade_thickness (int): Thickness of the blade in mm.
-    
     Returns:
         list: A list of boards with detailed cut configurations.
     """
-    # Validate inputs
-    if not all(len(board) == 3 for board in boards):
-        raise ValueError("Each board must be a tuple of (width, height, quantity).")
-    if not all(len(part) == 3 for part in parts):
-        raise ValueError("Each part must be a tuple of (width, height, quantity).")
-    
     # Expand parts based on their quantities
     expanded_parts = []
     for part in parts:
         expanded_parts.extend([(part[0], part[1])] * part[2])
-    
-    # Sort parts by area in descending order for better packing
+
+    # Sort parts by area for better packing
     expanded_parts.sort(key=lambda x: x[0] * x[1], reverse=True)
 
-    # Initialize solution
+    # Solution list to hold board usages
     solution = []
 
-    # Process each board
     for board in boards:
         board_width, board_height, board_quantity = board
         board_usage = []
@@ -82,10 +71,8 @@ def optimize_cuts(boards, parts, blade_thickness):
         for _ in range(board_quantity):
             current_board = {"width": board_width, "height": board_height, "cuts": []}
             spaces = [{"x": 0, "y": 0, "width": board_width, "height": board_height}]
-
             remaining_parts = []
 
-            # Try to fit each part into available spaces
             for part in expanded_parts:
                 part_width, part_height = part
                 placed = False
@@ -125,7 +112,6 @@ def optimize_cuts(boards, parts, blade_thickness):
                 if not placed:
                     remaining_parts.append(part)
 
-            # Add board usage details
             board_usage.append(current_board)
             expanded_parts = remaining_parts
 
@@ -207,7 +193,6 @@ for p in parts_input.split(","):
     p = p.strip()
     if p:
         try:
-            # Ensure the part is a valid tuple (width, height, quantity)
             parts.append(tuple(map(int, p.split("x"))))
         except ValueError:
             st.error(f"Invalid part input: {p}. Please use the format 'width x height x quantity'.")
@@ -221,7 +206,6 @@ export_pdf = st.sidebar.checkbox("Export results as PDF")
 
 if st.sidebar.button("Optimize"):
     try:
-        # Run the optimizer
         solution = optimize_cuts(boards, parts, blade_thickness)
         
         # Display results
