@@ -1,4 +1,6 @@
 streamlit
+pulp
+io
 matplotlib
 numpy
 pandas
