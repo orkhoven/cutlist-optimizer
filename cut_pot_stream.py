@@ -233,7 +233,7 @@ if st.sidebar.button("Optimize"):
             for cut in board_data["details"]:
                 for cut_detail in cut["cuts"]:
                     st.write(f" - {cut_detail['width']} x {cut_detail['height']} at position ({cut_detail['x']}, {cut_detail['y']})")
-        
+
         # Visualize results and export PDF if needed
         visualize_solution(solution, export_pdf=export_pdf)
 
