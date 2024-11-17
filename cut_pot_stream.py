@@ -160,16 +160,19 @@ def visualize_solution(solution, export_pdf=False):
         # Draw board
         ax[idx].add_patch(patches.Rectangle((0, 0), board_width, board_height, edgecolor="black", fill=False, lw=2))
         
-        # Check if there are cuts in the current board usage
-        cuts = board_data["details"][0]["cuts"] if len(board_data["details"]) > 0 else []
+        # Ensure there are cuts to visualize
+        cuts = board_data["details"][0]["cuts"] if len(board_data["details"]) > 0 and len(board_data["details"][0]["cuts"]) > 0 else []
 
-        # Draw cuts (parts)
-        for cut in cuts:
-            part_width, part_height = cut["width"], cut["height"]
-            x, y = cut["x"], cut["y"]
-            ax[idx].add_patch(patches.Rectangle((x, y), part_width, part_height, edgecolor="blue", facecolor="lightblue"))
-            ax[idx].text(x + part_width / 2, y + part_height / 2, f"{part_width}x{part_height}",
-                         color="black", ha="center", va="center")
+        # Draw cuts (parts) if they exist
+        if cuts:
+            for cut in cuts:
+                part_width, part_height = cut["width"], cut["height"]
+                x, y = cut["x"], cut["y"]
+                ax[idx].add_patch(patches.Rectangle((x, y), part_width, part_height, edgecolor="blue", facecolor="lightblue"))
+                ax[idx].text(x + part_width / 2, y + part_height / 2, f"{part_width}x{part_height}",
+                             color="black", ha="center", va="center")
+        else:
+            ax[idx].text(board_width / 2, board_height / 2, "No parts placed", ha="center", va="center", fontsize=12, color="red")
     
     st.pyplot(fig)
     
@@ -228,8 +231,6 @@ if st.sidebar.button("Optimize"):
                 for cut in board_data["details"][0]["cuts"]:
                     part_width, part_height, (x, y) = cut["width"], cut["height"], (cut["x"], cut["y"])
                     st.write(f" - {part_width} x {part_height} at position ({x}, {y})")
-            else:
-                st.write("No parts placed.")
         
         # Visualize results and export if needed
         st.subheader("Visualization")
