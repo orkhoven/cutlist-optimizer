@@ -11,6 +11,52 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+# Visualization with PDF export
+def visualize_solution(solution, export_pdf=False):
+    fig, ax = plt.subplots(len(solution), 1, figsize=(8, 5 * len(solution)))
+    if len(solution) == 1:
+        ax = [ax]
+
+    for idx, board_data in enumerate(solution):
+        board_width, board_height, _ = board_data['board']
+        ax[idx].set_xlim(0, board_width)
+        ax[idx].set_ylim(0, board_height)
+        ax[idx].set_title(f"Board {idx + 1}: {board_width} x {board_height}")
+        ax[idx].set_aspect('equal')
+        ax[idx].invert_yaxis()
+        ax[idx].set_xlabel("Width")
+        ax[idx].set_ylabel("Height")
+        
+        # Draw board
+        ax[idx].add_patch(patches.Rectangle((0, 0), board_width, board_height, edgecolor="black", fill=False, lw=2))
+        
+        # Draw cuts (parts placed on board)
+        cuts = board_data["cuts"] if len(board_data["cuts"]) > 0 else []
+        
+        if cuts:
+            for cut in cuts:
+                part_width, part_height = cut["part"]
+                x, y = 0, 0  # Position logic can be enhanced for better fitting
+                ax[idx].add_patch(patches.Rectangle((x, y), part_width, part_height, edgecolor="blue", facecolor="lightblue"))
+                ax[idx].text(x + part_width / 2, y + part_height / 2, f"{part_width}x{part_height}",
+                             color="black", ha="center", va="center")
+        else:
+            ax[idx].text(board_width / 2, board_height / 2, "No parts placed", ha="center", va="center", fontsize=12, color="red")
+    
+    st.pyplot(fig)
+    
+    if export_pdf:
+        pdf_buffer = BytesIO()
+        with PdfPages(pdf_buffer) as pdf:
+            for single_ax in ax:
+                pdf.savefig(single_ax.figure)
+        pdf_buffer.seek(0)
+        st.download_button(
+            label="Download PDF",
+            data=pdf_buffer,
+            file_name="Cutlist_Optimization_Results.pdf",
+            mime="application/pdf",
+        )
 
 def greedy_cutting(boards, parts, blade_thickness):
     """
