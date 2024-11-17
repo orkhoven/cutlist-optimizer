@@ -206,12 +206,21 @@ parts_input = st.sidebar.text_area(
     "Enter parts (width x height x quantity, e.g., 50x50x2, 40x80x1):",
     "50x50x2, 40x80x1"
 )
-parts = [
-    tuple(map(int, p.strip().split("x")) if p.strip() else None
-    for p in parts_input.split(",")
-]
 
-# Blade thickness selection
+# Safely parse the parts input, ensuring no invalid parts are added
+parts = []
+for p in parts_input.split(","):
+    p = p.strip()
+    if p:
+        try:
+            # Ensure the part is a valid tuple (width, height, quantity)
+            parts.append(tuple(map(int, p.split("x"))))
+        except ValueError:
+            st.error(f"Invalid part input: {p}. Please use the format 'width x height x quantity'.")
+            continue
+
+# Now, parts should be a list of valid tuples, or empty if no valid inputs were found
+
 blade_thickness = st.sidebar.selectbox("Blade Thickness (mm):", [2, 3, 4])
 
 export_pdf = st.sidebar.checkbox("Export results as PDF")
