@@ -1,6 +1,7 @@
 import streamlit as st
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+from pulp import LpMaximize, LpProblem, LpVariable, lpSum
 from io import BytesIO
 from matplotlib.backends.backend_pdf import PdfPages
 
@@ -45,82 +46,71 @@ st.markdown(
 
 def optimize_cuts(boards, parts, blade_thickness):
     """
-    Optimizes the cutting of parts from boards using a simplified 2D bin-packing approach.
+    Optimizes the cutting of parts from boards using a bin-packing approach with linear programming.
+    
     Args:
         boards (list): List of boards as (width, height, quantity).
         parts (list): List of parts as (width, height, quantity).
         blade_thickness (int): Thickness of the blade in mm.
+    
     Returns:
         list: A list of boards with detailed cut configurations.
     """
-    # Expand parts based on their quantities
+    # Initialize optimization problem
+    prob = LpProblem("Cutting Optimization", LpMaximize)
+
+    # Flatten parts based on their quantities
     expanded_parts = []
     for part in parts:
         expanded_parts.extend([(part[0], part[1])] * part[2])
 
-    # Sort parts by area for better packing
-    expanded_parts.sort(key=lambda x: x[0] * x[1], reverse=True)
+    # Create variables for each part-board combination
+    part_board_vars = {}
+    for idx, (board_width, board_height, board_quantity) in enumerate(boards):
+        for part in expanded_parts:
+            part_width, part_height = part
+            for i in range(board_quantity):
+                var_name = f"part_{expanded_parts.index(part)}_board_{idx}_slot_{i}"
+                part_board_vars[var_name] = LpVariable(var_name, cat="Binary")
 
-    # Solution list to hold board usages
+    # Objective function: Maximize the number of cuts placed on boards
+    prob += lpSum(part_board_vars.values()), "Total Cuts"
+
+    # Constraints to ensure parts are placed on available boards
+    for part_idx, (part_width, part_height) in enumerate(expanded_parts):
+        part_quantity = parts[part_idx][2]
+        prob += lpSum(part_board_vars[f"part_{part_idx}_board_{board_idx}_slot_{i}"]
+                      for board_idx, (board_width, board_height, board_quantity) in enumerate(boards)
+                      for i in range(board_quantity)) == part_quantity, f"Part_{part_idx}_placed"
+
+    # Constraints to ensure parts fit on boards
+    for board_idx, (board_width, board_height, board_quantity) in enumerate(boards):
+        for i in range(board_quantity):
+            for part_idx, (part_width, part_height) in enumerate(expanded_parts):
+                for var_name in part_board_vars:
+                    # Check if part fits within the board size and blade thickness
+                    if part_width + blade_thickness <= board_width and part_height + blade_thickness <= board_height:
+                        prob += part_board_vars[var_name] <= 1, f"Fit_Constraint_{var_name}"
+
+    # Solve the problem
+    prob.solve()
+
+    # Extract the solution and build the output
     solution = []
-
-    for board in boards:
-        board_width, board_height, board_quantity = board
-        board_usage = []
-
-        for _ in range(board_quantity):
-            current_board = {"width": board_width, "height": board_height, "cuts": []}
-            spaces = [{"x": 0, "y": 0, "width": board_width, "height": board_height}]
-            remaining_parts = []
-
-            for part in expanded_parts:
-                part_width, part_height = part
-                placed = False
-
-                for space in spaces:
-                    if (part_width + blade_thickness <= space["width"] and
-                        part_height + blade_thickness <= space["height"]):
-                        # Place part and update spaces
-                        current_board["cuts"].append({
-                            "x": space["x"],
-                            "y": space["y"],
-                            "width": part_width,
-                            "height": part_height
-                        })
-
-                        # Update remaining space
-                        new_spaces = [
-                            {
-                                "x": space["x"] + part_width + blade_thickness,
-                                "y": space["y"],
-                                "width": space["width"] - part_width - blade_thickness,
-                                "height": space["height"]
-                            },
-                            {
-                                "x": space["x"],
-                                "y": space["y"] + part_height + blade_thickness,
-                                "width": part_width,
-                                "height": space["height"] - part_height - blade_thickness
-                            }
-                        ]
-
-                        spaces.remove(space)
-                        spaces.extend([s for s in new_spaces if s["width"] > 0 and s["height"] > 0])
-                        placed = True
-                        break
-
-                if not placed:
-                    remaining_parts.append(part)
-
-            board_usage.append(current_board)
-            expanded_parts = remaining_parts
-
-            if not remaining_parts:
-                break
-
-        solution.append({"board": (board_width, board_height), "details": board_usage})
+    for board_idx, (board_width, board_height, board_quantity) in enumerate(boards):
+        board_usage = {"board": (board_width, board_height), "cuts": []}
+        for i in range(board_quantity):
+            for part_idx, (part_width, part_height) in enumerate(expanded_parts):
+                for var_name in part_board_vars:
+                    if part_board_vars[var_name].varValue == 1:
+                        # Parse part and add the cut to the board usage
+                        part_idx = int(var_name.split("_")[1])
+                        cut_info = {"part": expanded_parts[part_idx], "slot": i}
+                        board_usage["cuts"].append(cut_info)
+        solution.append(board_usage)
 
     return solution
+
 
 # Visualization with PDF export
 def visualize_solution(solution, export_pdf=False):
@@ -142,11 +132,12 @@ def visualize_solution(solution, export_pdf=False):
         ax[idx].add_patch(patches.Rectangle((0, 0), board_width, board_height, edgecolor="black", fill=False, lw=2))
         
         # Draw cuts (parts placed on board)
-        cuts = board_data["details"][0]["cuts"] if len(board_data["details"]) > 0 else []
+        cuts = board_data["cuts"] if len(board_data["cuts"]) > 0 else []
         
         if cuts:
             for cut in cuts:
-                x, y, part_width, part_height = cut["x"], cut["y"], cut["width"], cut["height"]
+                part_width, part_height = cut["part"]
+                x, y = cut["slot"], 0  # Example, modify slot logic to position cuts better
                 ax[idx].add_patch(patches.Rectangle((x, y), part_width, part_height, edgecolor="blue", facecolor="lightblue"))
                 ax[idx].text(x + part_width / 2, y + part_height / 2, f"{part_width}x{part_height}",
                              color="black", ha="center", va="center")
@@ -211,13 +202,12 @@ if st.sidebar.button("Optimize"):
         # Display results
         st.subheader("Optimization Results")
         for idx, board_data in enumerate(solution):
-            st.write(f"**Board {idx + 1}:** {board_data['board'][0]} x {board_data['board'][1]} (Quantity: {board_data['board'][2]})")
-            st.write("Parts placed:")
-            for cut in board_data["details"][0]["cuts"]:
-                st.write(f" - {cut['width']} x {cut['height']} at position ({cut['x']}, {cut['y']})")
+            st.write(f"**Board {idx + 1}:** {board_data['board'][0]} x {board_data['board'][1]}")
+            st.write(f"Parts placed: {len(board_data['cuts'])}")
+            if not board_data["cuts"]:
+                st.write("No parts placed.")
         
-        # Visualize results and export PDF if needed
-        visualize_solution(solution, export_pdf=export_pdf)
+        visualize_solution(solution, export_pdf)
 
     except Exception as e:
-        st.error(f"An error occurred: {str(e)}")
+        st.error(f"An error occurred during optimization: {e}")
