@@ -171,7 +171,7 @@ export_pdf = st.sidebar.checkbox("Export results as PDF")
 
 if st.sidebar.button("Optimize"):
     try:
-        solution = optimize_cuts(boards, parts, blade_thickness)
+        solution = greedy_cutting(boards, parts, blade_thickness)
         
         # Display results
         st.subheader("Optimization Results")
