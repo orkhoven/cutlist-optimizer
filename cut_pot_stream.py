@@ -66,11 +66,11 @@ def optimize_cuts(boards, parts, blade_thickness):
 
     # Create variables for each part-board combination
     part_board_vars = {}
-    for idx, (board_width, board_height, board_quantity) in enumerate(boards):
+    for board_idx, (board_width, board_height, board_quantity) in enumerate(boards):
         for part_idx, part in enumerate(expanded_parts):
             part_width, part_height = part
             for i in range(board_quantity):
-                var_name = f"part_{part_idx}_board_{idx}_slot_{i}"
+                var_name = f"part_{part_idx}_board_{board_idx}_slot_{i}"
                 part_board_vars[var_name] = LpVariable(var_name, cat="Binary")
 
     # Objective function: Maximize the number of cuts placed on boards
@@ -99,14 +99,18 @@ def optimize_cuts(boards, parts, blade_thickness):
     for board_idx, (board_width, board_height, board_quantity) in enumerate(boards):
         board_usage = {"board": (board_width, board_height), "cuts": []}
         for i in range(board_quantity):
-            for part_idx, (part_width, part_height) in enumerate(expanded_parts):
+            for part_idx, part in enumerate(expanded_parts):
                 var_name = f"part_{part_idx}_board_{board_idx}_slot_{i}"
-                if part_board_vars[var_name].varValue == 1:
-                    cut_info = {"part": expanded_parts[part_idx], "slot": i}
-                    board_usage["cuts"].append(cut_info)
+                try:
+                    if part_board_vars[var_name].varValue == 1:
+                        cut_info = {"part": expanded_parts[part_idx], "slot": i}
+                        board_usage["cuts"].append(cut_info)
+                except KeyError:
+                    pass  # If the variable is missing, continue without crashing
         solution.append(board_usage)
 
     return solution
+
 
 
 
