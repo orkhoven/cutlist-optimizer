@@ -7,6 +7,9 @@
 import streamlit as st
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+from itertools import permutations
+from io import BytesIO
+from matplotlib.backends.backend_pdf import PdfPages
 
 # Configure Streamlit page
 st.set_page_config(
@@ -47,41 +50,95 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Greedy algorithm for cutlist optimization considering blade thickness
-def greedy_cutlist(boards, parts, blade_thickness):
-    parts = sorted(parts, key=lambda x: x[0] * x[1], reverse=True)
-    solution = []
+def optimize_cuts(boards, parts, blade_thickness):
+    """
+    Optimizes the cutting of parts from boards using a 2D bin-packing approach.
+    Minimizes waste and maximizes board utilization.
     
+    Args:
+        boards (list): List of boards as (width, height, quantity).
+        parts (list): List of parts as (width, height, quantity).
+        blade_thickness (int): Thickness of the blade in mm.
+    
+    Returns:
+        list: A list of boards with detailed cut configurations.
+    """
+    from operator import itemgetter
+    
+    # Expand parts based on their quantities
+    expanded_parts = []
+    for part in parts:
+        expanded_parts.extend([(part[0], part[1])] * part[2])
+    
+    # Sort parts by area in descending order for better packing
+    expanded_parts.sort(key=lambda x: x[0] * x[1], reverse=True)
+
+    # Initialize solution
+    solution = []
+
+    # Process each board
     for board in boards:
         board_width, board_height, board_quantity = board
-        for _ in range(board_quantity):  # Consider board quantities
-            remaining_space = [[0, 0, board_width, board_height]]  # [x1, y1, x2, y2]
-            current_board_parts = []
-            
-            for part in parts[:]:
-                part_width, part_height, quantity = part
-                for _ in range(quantity):
-                    for space in remaining_space:
-                        x1, y1, x2, y2 = space
-                        if part_width + blade_thickness <= (x2 - x1) and part_height + blade_thickness <= (y2 - y1):
-                            # Allocate space considering blade thickness
-                            current_board_parts.append((part_width, part_height, (x1, y1)))
-                            remaining_space.remove(space)
-                            remaining_space.append([x1 + part_width + blade_thickness, y1, x2, y2])  # Right space
-                            remaining_space.append([x1, y1 + part_height + blade_thickness, x1 + part_width, y2])  # Bottom space
-                            break
-                    else:
-                        continue
-                    break
-                else:
-                    parts.remove(part)
-            if current_board_parts:
-                solution.append({'board': board, 'parts': current_board_parts})
+        board_usage = []
+
+        for _ in range(board_quantity):
+            current_board = {"width": board_width, "height": board_height, "cuts": []}
+            spaces = [{"x": 0, "y": 0, "width": board_width, "height": board_height}]
+
+            remaining_parts = []
+
+            # Try to fit each part into available spaces
+            for part in expanded_parts:
+                part_width, part_height = part
+                placed = False
+
+                for space in spaces:
+                    if (part_width + blade_thickness <= space["width"] and
+                        part_height + blade_thickness <= space["height"]):
+                        # Place part and update spaces
+                        current_board["cuts"].append({
+                            "x": space["x"],
+                            "y": space["y"],
+                            "width": part_width,
+                            "height": part_height
+                        })
+
+                        # Update remaining space
+                        new_spaces = [
+                            {
+                                "x": space["x"] + part_width + blade_thickness,
+                                "y": space["y"],
+                                "width": space["width"] - part_width - blade_thickness,
+                                "height": space["height"]
+                            },
+                            {
+                                "x": space["x"],
+                                "y": space["y"] + part_height + blade_thickness,
+                                "width": part_width,
+                                "height": space["height"] - part_height - blade_thickness
+                            }
+                        ]
+
+                        spaces.remove(space)
+                        spaces.extend([s for s in new_spaces if s["width"] > 0 and s["height"] > 0])
+                        placed = True
+                        break
+
+                if not placed:
+                    remaining_parts.append(part)
+
+            # Add board usage details
+            board_usage.append(current_board)
+            expanded_parts = remaining_parts
+
+            if not remaining_parts:
+                break
+
+        solution.append({"board": (board_width, board_height), "details": board_usage})
+
     return solution
 
-from matplotlib.backends.backend_pdf import PdfPages
-
-# Visualization function with PDF export
+# Visualization with PDF export
 def visualize_solution(solution, export_pdf=False):
     fig, ax = plt.subplots(len(solution), 1, figsize=(8, 5 * len(solution)))
     if len(solution) == 1:
@@ -107,23 +164,20 @@ def visualize_solution(solution, export_pdf=False):
             ax[idx].text(x + part_width / 2, y + part_height / 2, f"{part_width}x{part_height}",
                          color="black", ha="center", va="center")
     
-    # Show visualization in Streamlit
     st.pyplot(fig)
     
-    # Export to PDF if requested
     if export_pdf:
-        pdf_filename = "Cutlist_Optimization_Results.pdf"
-        with PdfPages(pdf_filename) as pdf:
+        pdf_buffer = BytesIO()
+        with PdfPages(pdf_buffer) as pdf:
             for single_ax in ax:
                 pdf.savefig(single_ax.figure)
-        st.success(f"Graphs exported successfully to {pdf_filename}.")
+        pdf_buffer.seek(0)
         st.download_button(
             label="Download PDF",
-            data=open(pdf_filename, "rb").read(),
-            file_name=pdf_filename,
+            data=pdf_buffer,
+            file_name="Cutlist_Optimization_Results.pdf",
             mime="application/pdf",
         )
-
 
 # Streamlit App
 st.title("Cutlist Optimizer 🪚")
@@ -156,7 +210,7 @@ export_pdf = st.sidebar.checkbox("Export results as PDF")
 if st.sidebar.button("Optimize"):
     try:
         # Run the optimizer
-        solution = greedy_cutlist(boards, parts, blade_thickness)
+        solution = optimize_cuts(boards, parts, blade_thickness)
         
         # Display results
         st.subheader("Optimization Results")
