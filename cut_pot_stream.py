@@ -7,7 +7,6 @@
 import streamlit as st
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
-from itertools import permutations
 from io import BytesIO
 from matplotlib.backends.backend_pdf import PdfPages
 
@@ -161,8 +160,11 @@ def visualize_solution(solution, export_pdf=False):
         # Draw board
         ax[idx].add_patch(patches.Rectangle((0, 0), board_width, board_height, edgecolor="black", fill=False, lw=2))
         
-        # Draw cuts (not parts)
-        for cut in board_data["details"][0]["cuts"]:  # Now accessing 'cuts' inside the board usage
+        # Check if there are cuts in the current board usage
+        cuts = board_data["details"][0]["cuts"] if len(board_data["details"]) > 0 else []
+
+        # Draw cuts (parts)
+        for cut in cuts:
             part_width, part_height = cut["width"], cut["height"]
             x, y = cut["x"], cut["y"]
             ax[idx].add_patch(patches.Rectangle((x, y), part_width, part_height, edgecolor="blue", facecolor="lightblue"))
@@ -222,9 +224,12 @@ if st.sidebar.button("Optimize"):
         for idx, board_data in enumerate(solution):
             st.write(f"**Board {idx + 1}:** {board_data['board'][0]} x {board_data['board'][1]} (Quantity: {board_data['board'][2]})")
             st.write("Parts placed:")
-            for cut in board_data["details"][0]["cuts"]:
-                part_width, part_height, (x, y) = cut["width"], cut["height"], (cut["x"], cut["y"])
-                st.write(f" - {part_width} x {part_height} at position ({x}, {y})")
+            if len(board_data["details"]) > 0:
+                for cut in board_data["details"][0]["cuts"]:
+                    part_width, part_height, (x, y) = cut["width"], cut["height"], (cut["x"], cut["y"])
+                    st.write(f" - {part_width} x {part_height} at position ({x}, {y})")
+            else:
+                st.write("No parts placed.")
         
         # Visualize results and export if needed
         st.subheader("Visualization")
