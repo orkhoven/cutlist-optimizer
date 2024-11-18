@@ -96,9 +96,9 @@ board_input = st.sidebar.text_area(
 boards = [tuple(map(int, b.split("x"))) for b in board_input.split("\n") if b.strip()]
 
 parts_input = st.sidebar.text_area(
-    "Enter parts (width,height):", "20,10\n20,10\n20,10\n20,10\n50,50\n50,50"
+    "Enter parts (width,height):", "20x10\n20x10\n20x10\n20x10\n50x50\n50x50"
 )
-parts = [tuple(map(int, p.split(","))) for p in parts_input.split("\n") if p.strip()]
+parts = [tuple(map(int, p.split("x"))) for p in parts_input.split("\n") if p.strip()]
 
 blade_thickness = st.sidebar.number_input(
     "Blade Thickness (units):", min_value=0, value=2, step=1
