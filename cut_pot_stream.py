@@ -91,9 +91,9 @@ st.title("Cut List Optimizer with Hover Annotations")
 
 st.sidebar.header("Input Parameters")
 board_input = st.sidebar.text_area(
-    "Enter boards (width,height):", "100,50\n200,100"
+    "Enter boards (width,height):", "100x50\n200x100"
 )
-boards = [tuple(map(int, b.split(","))) for b in board_input.split("\n") if b.strip()]
+boards = [tuple(map(int, b.split("x"))) for b in board_input.split("\n") if b.strip()]
 
 parts_input = st.sidebar.text_area(
     "Enter parts (width,height):", "20,10\n20,10\n20,10\n20,10\n50,50\n50,50"
