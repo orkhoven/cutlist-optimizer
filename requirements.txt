@@ -5,4 +5,4 @@ numpy
 pandas
 fpdf
 plotly
-mplcursor
+mplcursors
