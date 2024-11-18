@@ -55,6 +55,8 @@ def optimize_cuts_with_subregions(boards, parts, blade_thickness):
     return packed_boards
 
 
+import io
+
 def plot_board(board, board_index):
     """Plot a single board with cuts, including hover annotations."""
     fig, ax = plt.subplots(figsize=(10, 6))
@@ -78,13 +80,26 @@ def plot_board(board, board_index):
         )
     )
     
-    return fig
+    # Save the figure as a PDF
+    pdf_buffer = io.BytesIO()
+    fig.savefig(pdf_buffer, format="pdf")
+    pdf_buffer.seek(0)
+    
+    return fig, pdf_buffer
 
 def visualize_boards(boards):
-    """Visualize all boards with cuts."""
+    """Visualize all boards with cuts and provide a PDF download option."""
     for i, board in enumerate(boards):
-        fig = plot_board(board, i)
+        fig, pdf_buffer = plot_board(board, i)
         st.pyplot(fig)
+        
+        # Add download button for the PDF
+        st.download_button(
+            label=f"Download Board {i+1} as PDF",
+            data=pdf_buffer,
+            file_name=f"board_{i+1}.pdf",
+            mime="application/pdf"
+        )
 
 # Streamlit App
 st.title("Cut List Optimizer with Hover Annotations")
@@ -101,12 +116,12 @@ parts_input = st.sidebar.text_area(
 parts = [tuple(map(int, p.split("x"))) for p in parts_input.split("\n") if p.strip()]
 
 blade_thickness = st.sidebar.number_input(
-    "Blade Thickness (units):", min_value=0, value=2, step=1
+    "Blade Thickness (mm):", min_value=0, value=2, step=1
 )
 
 if st.button("Optimize Cuts"):
     # Perform the optimization
     packed_boards = optimize_cuts_with_subregions(boards, parts, blade_thickness)
     
-    # Visualize the packed boards with hover annotations
+    # Visualize the packed boards and offer PDF download
     visualize_boards(packed_boards)
