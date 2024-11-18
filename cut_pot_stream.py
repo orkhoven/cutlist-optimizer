@@ -9,7 +9,7 @@ def parse_input(input_text):
         lines = input_text.strip().split("\n")
         parsed = [(float(line.split(",")[0]), float(line.split(",")[1]), int(line.split(",")[2])) for line in lines]
         return [(w, h) for w, h, qty in parsed for _ in range(qty)]
-    except:
+    except Exception:
         st.error("Invalid format. Use: width,height,quantity (one per line).")
         return []
 
@@ -22,7 +22,6 @@ def optimize_cuts(boards, cuts, blade_thickness):
             if cut_width <= board["width"] and cut_height <= board["height"]:
                 # Place cut
                 board["cuts"].append((cut_width, cut_height))
-                # Update remaining width
                 board["width"] -= cut_width + blade_thickness
                 placed = True
                 break
@@ -32,12 +31,14 @@ def optimize_cuts(boards, cuts, blade_thickness):
 
 def visualize_cuts(boards):
     """Generate a visualization of the boards and cuts."""
-    fig, ax = plt.subplots(figsize=(10, len(boards) * 3))
-    y_offset = 0
+    max_boards_to_display = 5  # Limit number of boards to display at once
+    boards = boards[:max_boards_to_display]  # Limit for visualization
+    fig, ax = plt.subplots(figsize=(12, 5 * len(boards)))
     colors = plt.cm.tab20.colors
 
+    y_offset = 0
     for i, board in enumerate(boards):
-        # Draw the board
+        # Draw board
         ax.add_patch(Rectangle((0, y_offset), board["width"], board["height"], edgecolor="black", fill=False))
         ax.text(5, y_offset + board["height"] - 5, f"Board {i + 1}", fontsize=10, color="black")
         
@@ -51,8 +52,9 @@ def visualize_cuts(boards):
             x_pos += cut_width  # Update x position for next cut
         y_offset += board["height"] + 10  # Update y position for the next board
 
-    ax.set_aspect("equal")
+    ax.set_aspect("equal", adjustable="box")
     ax.axis("off")
+    plt.tight_layout()
     return fig
 
 def export_to_pdf(fig):
@@ -62,7 +64,7 @@ def export_to_pdf(fig):
     pdf.set_font("Arial", size=12)
     pdf.cell(200, 10, txt="Optimized Cuts Visualization", ln=True, align="C")
 
-    fig.savefig("visualization.png", dpi=100, bbox_inches="tight")
+    fig.savefig("visualization.png", dpi=72, bbox_inches="tight")  # Streamlit-safe DPI
     pdf.image("visualization.png", x=10, y=30, w=190)
     pdf.output("optimized_cuts.pdf")
     return "optimized_cuts.pdf"
