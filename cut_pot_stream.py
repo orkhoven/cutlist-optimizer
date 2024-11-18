@@ -1,108 +1,112 @@
 import streamlit as st
 import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
-from fpdf import FPDF
+import matplotlib.patches as patches
+import mplcursors
+import plotly.graph_objects as go
 
-def parse_input(input_text):
-    """Parse user input for dimensions and quantities."""
-    try:
-        lines = input_text.strip().split("\n")
-        parsed = [(float(line.split(",")[0]), float(line.split(",")[1]), int(line.split(",")[2])) for line in lines]
-        return [(w, h) for w, h, qty in parsed for _ in range(qty)]
-    except Exception:
-        st.error("Invalid format. Use: width,height,quantity (one per line).")
-        return []
 
-def optimize_cuts(boards, cuts, blade_thickness):
-    """Optimize the cutting process."""
-    remaining_boards = [{"width": bw, "height": bh, "cuts": []} for bw, bh in boards]
-    for cut_width, cut_height in cuts:
-        placed = False
-        for board in remaining_boards:
-            if cut_width <= board["width"] and cut_height <= board["height"]:
-                # Place cut
-                board["cuts"].append((cut_width, cut_height))
-                board["width"] -= cut_width + blade_thickness
-                placed = True
-                break
+def optimize_cuts_with_subregions(boards, parts, blade_thickness):
+    """
+    Optimize cuts using 2D bin packing with subregion splitting.
+    Args:
+        boards: List of tuples [(width, height), ...] representing board dimensions.
+        parts: List of tuples [(width, height), ...] representing part dimensions.
+        blade_thickness: Space taken up by the cutting blade (in the same units as dimensions).
+
+    Returns:
+        List of boards with cuts assigned and remaining available space.
+    """
+    # Sort parts by area (largest to smallest)
+    parts = sorted(parts, key=lambda x: x[0] * x[1], reverse=True)
+
+    # Each board will hold cuts and remaining spaces
+    packed_boards = [{"width": board[0], "height": board[1], "cuts": [], "spaces": [(0, 0, board[0], board[1])]} for board in boards]
+
+    def try_to_place_part(part_width, part_height):
+        """Try to place a part on the boards and return the result."""
+        for board in packed_boards:
+            for i, (x, y, space_width, space_height) in enumerate(board["spaces"]):
+                if part_width <= space_width and part_height <= space_height:
+                    # Place the cut
+                    board["cuts"].append((x, y, part_width, part_height))
+
+                    # Split the remaining space into sub-regions
+                    new_spaces = [
+                        (x + part_width + blade_thickness, y, space_width - part_width - blade_thickness, space_height),  # Right space
+                        (x, y + part_height + blade_thickness, space_width, space_height - part_height - blade_thickness),  # Top space
+                    ]
+
+                    # Replace the used space with valid sub-regions
+                    del board["spaces"][i]
+                    board["spaces"].extend([s for s in new_spaces if s[2] > 0 and s[3] > 0])  # Keep only non-zero spaces
+                    return True
+        return False
+
+    # Try to place all parts
+    for part_width, part_height in parts:
+        placed = try_to_place_part(part_width, part_height)
         if not placed:
-            st.error(f"Could not place cut {cut_width}x{cut_height}")
-    return remaining_boards
+            # Try rotating the part and place again
+            placed = try_to_place_part(part_height, part_width)
+        
+        if not placed:
+            st.error(f"Part {part_width}x{part_height} could not be placed!")
 
-def visualize_cuts(boards):
-    """Generate a visualization of the boards and cuts."""
-    # Set maximum figure size
-    max_height = 15
-    num_boards = len(boards)
-    fig_height = min(max_height, 3 * num_boards)
+    return packed_boards
+
+
+def plot_board(board, board_index):
+    """Plot a single board with cuts, including hover annotations."""
+    fig, ax = plt.subplots(figsize=(10, 6))
     
-    fig, ax = plt.subplots(figsize=(10, fig_height))
-    colors = plt.cm.tab20.colors
+    # Plot cuts (blue color)
+    for i, cut in enumerate(board["cuts"]):
+        ax.add_patch(plt.Rectangle((cut[0], cut[1]), cut[2], cut[3], color="blue"))
+        ax.text(cut[0] + cut[2]/2, cut[1] + cut[3]/2, f"Cut {i+1}", ha="center", va="center", color="white")
 
-    y_offset = 0
-    for i, board in enumerate(boards):
-        board_width, board_height = board["width"], board["height"]
-        
-        # Draw the board
-        ax.add_patch(Rectangle((0, y_offset), board_width, board_height, edgecolor="black", fill=False, linewidth=2))
-        ax.text(5, y_offset + board_height - 5, f"Board {i + 1}", fontsize=10, color="black")
-        
-        # Draw cuts
-        x_pos = 0
-        for j, (cut_width, cut_height) in enumerate(board["cuts"]):
-            color = colors[j % len(colors)]
-            rect = Rectangle((x_pos, y_offset), cut_width, cut_height, facecolor=color, edgecolor="black", alpha=0.7)
-            ax.add_patch(rect)
-            ax.text(x_pos + cut_width / 2, y_offset + cut_height / 2, f"{cut_width}x{cut_height}", ha="center", va="center", fontsize=8)
-            x_pos += cut_width + 2  # Add blade thickness
-        y_offset += board_height + 10  # Update y position for the next board
+    # Set labels and limits
+    ax.set_title(f"Board {board_index+1}: {board['width']}x{board['height']}")
+    ax.set_xlim(0, board['width'])
+    ax.set_ylim(0, board['height'])
+    ax.set_xlabel('Width')
+    ax.set_ylabel('Height')
 
-    ax.set_aspect("equal", adjustable="box")
-    ax.axis("off")
-    plt.tight_layout()
+    # Add hover functionality with annotations
+    mplcursors.cursor(hover=True).connect(
+        "add", lambda sel: sel.annotation.set_text(
+            f"Cut {sel.index+1}: {board['cuts'][sel.index][2]}x{board['cuts'][sel.index][3]}"
+        )
+    )
+    
     return fig
 
-def export_to_pdf(fig):
-    """Export the Matplotlib figure to a PDF."""
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Arial", size=12)
-    pdf.cell(200, 10, txt="Optimized Cuts Visualization", ln=True, align="C")
-
-    fig.savefig("visualization.png", dpi=72, bbox_inches="tight")
-    pdf.image("visualization.png", x=10, y=30, w=190)
-    pdf.output("optimized_cuts.pdf")
-    return "optimized_cuts.pdf"
-
-def main():
-    st.title("Cut List Optimizer")
-
-    st.sidebar.header("Input Parameters")
-    board_input = st.sidebar.text_area(
-        "Enter boards (width,height,quantity):", "100,50,2\n200,100,1"
-    )
-    boards = parse_input(board_input)
-
-    parts_input = st.sidebar.text_area(
-        "Enter parts (width,height,quantity):", "20,10,4\n50,50,2"
-    )
-    parts = parse_input(parts_input)
-
-    blade_thickness = st.sidebar.selectbox(
-        "Blade Thickness:", options=[2, 3, 4], format_func=lambda x: f"{x} mm"
-    )
-
-    create_pdf = st.sidebar.checkbox("Create PDF")
-
-    if st.button("Optimize Cuts"):
-        optimized_boards = optimize_cuts(boards, parts, blade_thickness)
-        fig = visualize_cuts(optimized_boards)
+def visualize_boards(boards):
+    """Visualize all boards with cuts."""
+    for i, board in enumerate(boards):
+        fig = plot_board(board, i)
         st.pyplot(fig)
 
-        if create_pdf:
-            pdf_path = export_to_pdf(fig)
-            with open(pdf_path, "rb") as f:
-                st.download_button("Download PDF", f, file_name="optimized_cuts.pdf")
+# Streamlit App
+st.title("Cut List Optimizer with Hover Annotations")
 
-if __name__ == "__main__":
-    main()
+st.sidebar.header("Input Parameters")
+board_input = st.sidebar.text_area(
+    "Enter boards (width,height):", "100,50\n200,100"
+)
+boards = [tuple(map(int, b.split(","))) for b in board_input.split("\n") if b.strip()]
+
+parts_input = st.sidebar.text_area(
+    "Enter parts (width,height):", "20,10\n20,10\n20,10\n20,10\n50,50\n50,50"
+)
+parts = [tuple(map(int, p.split(","))) for p in parts_input.split("\n") if p.strip()]
+
+blade_thickness = st.sidebar.number_input(
+    "Blade Thickness (units):", min_value=0, value=2, step=1
+)
+
+if st.button("Optimize Cuts"):
+    # Perform the optimization
+    packed_boards = optimize_cuts_with_subregions(boards, parts, blade_thickness)
+    
+    # Visualize the packed boards with hover annotations
+    visualize_boards(packed_boards)
