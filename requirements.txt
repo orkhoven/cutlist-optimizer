@@ -3,3 +3,4 @@ pulp
 matplotlib
 numpy
 pandas
+fpdf
