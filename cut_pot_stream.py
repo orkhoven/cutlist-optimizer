@@ -4,6 +4,16 @@ from matplotlib.patches import Rectangle
 import pandas as pd
 from fpdf import FPDF
 
+def parse_input(input_text):
+    """Parse user input for dimensions and quantities."""
+    try:
+        lines = input_text.strip().split("\n")
+        parsed = [(float(line.split(",")[0]), float(line.split(",")[1]), int(line.split(",")[2])) for line in lines]
+        return parsed
+    except Exception as e:
+        st.error("Error parsing input. Ensure it is in the format: width,height,quantity (one per line).")
+        return []
+
 def optimize_cuts(boards, cuts, blade_thickness):
     optimized_cuts = []
     remaining_boards = boards.copy()
@@ -32,21 +42,27 @@ def optimize_cuts(boards, cuts, blade_thickness):
     return optimized_cuts
 
 def visualize_cuts(boards, optimized_cuts):
-    fig, ax = plt.subplots(figsize=(8, 8))
+    fig, axs = plt.subplots(len(boards), 1, figsize=(8, len(boards) * 4))
+    if len(boards) == 1:
+        axs = [axs]
 
-    for i, board in enumerate(boards):
+    for ax, board in zip(axs, boards):
         board_width, board_height = board
-        ax.add_patch(Rectangle((0, -i * (board_height + 10)), board_width, board_height, edgecolor='black', fill=False))
+        ax.set_xlim(0, board_width)
+        ax.set_ylim(0, board_height)
+        ax.set_title(f"Board {board_width}x{board_height}")
+        ax.set_aspect('equal', adjustable='box')
+        ax.set_xticks(range(0, int(board_width) + 1, 10))
+        ax.set_yticks(range(0, int(board_height) + 1, 10))
+        ax.grid(True, which='both', linestyle='--', linewidth=0.5)
 
-    colors = plt.cm.tab20.colors
-    for idx, (cut_width, cut_height, (board_width, board_height)) in enumerate(optimized_cuts):
-        color = colors[idx % len(colors)]
-        ax.add_patch(Rectangle((0, -idx * (board_height + 10)), cut_width, cut_height, edgecolor='black', color=color, alpha=0.7))
+        for cut_width, cut_height, (b_width, b_height) in optimized_cuts:
+            if (b_width, b_height) == board:
+                rect = Rectangle((0, 0), cut_width, cut_height, linewidth=1, edgecolor='blue', facecolor='cyan', alpha=0.6)
+                ax.add_patch(rect)
+                ax.text(cut_width / 2, cut_height / 2, f"{cut_width}x{cut_height}", ha='center', va='center', fontsize=8)
 
-    ax.set_xlim(0, max(board[0] for board in boards))
-    ax.set_ylim(-len(boards) * max(board[1] for board in boards), 0)
-    ax.set_aspect('equal')
-    plt.axis('off')
+    plt.tight_layout()
     return fig
 
 def export_to_pdf(fig):
@@ -64,24 +80,32 @@ def main():
     st.title("Cut List Optimizer")
 
     st.sidebar.header("Input Parameters")
-    num_boards = st.sidebar.number_input("Number of boards", min_value=1, step=1)
-    boards = []
-    for i in range(num_boards):
-        width = st.sidebar.number_input(f"Board {i+1} Width", min_value=1.0, step=0.1)
-        height = st.sidebar.number_input(f"Board {i+1} Height", min_value=1.0, step=0.1)
-        boards.append((width, height))
 
-    num_cuts = st.sidebar.number_input("Number of cuts", min_value=1, step=1)
-    cuts = []
-    for i in range(num_cuts):
-        width = st.sidebar.number_input(f"Cut {i+1} Width", min_value=1.0, step=0.1)
-        height = st.sidebar.number_input(f"Cut {i+1} Height", min_value=1.0, step=0.1)
-        cuts.append((width, height))
+    st.sidebar.subheader("Boards")
+    board_input = st.sidebar.text_area(
+        "Enter boards (width,height,quantity):",
+        "100,50,2\n200,100,1"
+    )
+    boards_data = parse_input(board_input)
+    boards = [(w, h) for w, h, q in boards_data for _ in range(q)]
 
-    blade_thickness = st.sidebar.number_input("Blade Thickness", min_value=0.0, step=0.1)
+    st.sidebar.subheader("Parts")
+    parts_input = st.sidebar.text_area(
+        "Enter parts (width,height,quantity):",
+        "20,10,4\n50,50,2"
+    )
+    parts_data = parse_input(parts_input)
+    parts = [(w, h) for w, h, q in parts_data for _ in range(q)]
+
+    st.sidebar.subheader("Blade Thickness")
+    blade_thickness = st.sidebar.selectbox(
+        "Select blade thickness:",
+        options=[2, 3, 4],
+        format_func=lambda x: f"{x} mm"
+    )
 
     if st.button("Optimize Cuts"):
-        optimized_cuts = optimize_cuts(boards, cuts, blade_thickness)
+        optimized_cuts = optimize_cuts(boards, parts, blade_thickness)
         st.write("Optimized Cuts", pd.DataFrame(optimized_cuts, columns=['Cut Width', 'Cut Height', 'Board']))
         fig = visualize_cuts(boards, optimized_cuts)
         st.pyplot(fig)
