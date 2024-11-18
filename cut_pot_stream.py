@@ -15,45 +15,37 @@ def parse_input(input_text):
 
 def optimize_cuts(boards, cuts, blade_thickness):
     """Optimize the cutting process."""
-    remaining_boards = boards.copy()
-    optimized_cuts = []
-
+    remaining_boards = [{"width": bw, "height": bh, "cuts": []} for bw, bh in boards]
     for cut_width, cut_height in cuts:
         placed = False
-        for i, (board_width, board_height) in enumerate(remaining_boards):
-            if cut_width <= board_width and cut_height <= board_height:
-                optimized_cuts.append((cut_width, cut_height, i))
-                # Update board dimensions
-                remaining_boards[i] = (
-                    board_width - cut_width - blade_thickness, board_height
-                )
+        for board in remaining_boards:
+            if cut_width <= board["width"] and cut_height <= board["height"]:
+                # Place cut
+                board["cuts"].append((cut_width, cut_height, len(board["cuts"])))
+                # Update board space
+                board["width"] -= cut_width + blade_thickness
                 placed = True
                 break
-
         if not placed:
             st.error(f"Could not place cut {cut_width}x{cut_height}")
+    return remaining_boards
 
-    return optimized_cuts
-
-def visualize_cuts(boards, optimized_cuts):
+def visualize_cuts(boards):
     """Generate a visualization of the boards and cuts."""
-    fig, ax = plt.subplots(figsize=(10, 8))
+    fig, ax = plt.subplots(figsize=(12, len(boards) * 4))
+    y_offset = 0
     colors = plt.cm.tab20.colors
 
-    for i, (board_width, board_height) in enumerate(boards):
-        # Draw the board
-        ax.add_patch(Rectangle((0, -i * (board_height + 10)), board_width, board_height, edgecolor='black', fill=False))
+    for i, board in enumerate(boards):
+        # Draw board
+        ax.add_patch(Rectangle((0, y_offset), board["width"], board["height"], edgecolor='black', fill=False, linewidth=2))
+        for j, (cw, ch, _) in enumerate(board["cuts"]):
+            color = colors[j % len(colors)]
+            rect = Rectangle((0, y_offset), cw, ch, facecolor=color, edgecolor='black', alpha=0.7)
+            ax.add_patch(rect)
+            ax.text(cw / 2, y_offset + ch / 2, f"{cw}x{ch}", ha="center", va="center", fontsize=8)
+            y_offset += ch  # Adjust offset for next cut
 
-        # Draw cuts on this board
-        offset_x, offset_y = 0, -i * (board_height + 10)
-        for cut_width, cut_height, board_index in optimized_cuts:
-            if board_index == i:
-                ax.add_patch(Rectangle((offset_x, offset_y), cut_width, cut_height, facecolor=colors[i % len(colors)], edgecolor='black', alpha=0.6))
-                ax.text(offset_x + cut_width / 2, offset_y + cut_height / 2, f"{cut_width}x{cut_height}", ha="center", va="center", fontsize=8)
-                offset_x += cut_width  # Shift for next cut
-
-    ax.set_xlim(0, max(board[0] for board in boards))
-    ax.set_ylim(-len(boards) * (max(board[1] for board in boards) + 10), 0)
     ax.set_aspect("equal")
     ax.axis("off")
     return fig
@@ -91,8 +83,8 @@ def main():
     create_pdf = st.sidebar.checkbox("Create PDF")
 
     if st.button("Optimize Cuts"):
-        optimized_cuts = optimize_cuts(boards, parts, blade_thickness)
-        fig = visualize_cuts(boards, optimized_cuts)
+        optimized_boards = optimize_cuts(boards, parts, blade_thickness)
+        fig = visualize_cuts(optimized_boards)
         st.pyplot(fig)
 
         if create_pdf:
