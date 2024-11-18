@@ -21,8 +21,8 @@ def optimize_cuts(boards, cuts, blade_thickness):
         for board in remaining_boards:
             if cut_width <= board["width"] and cut_height <= board["height"]:
                 # Place cut
-                board["cuts"].append((cut_width, cut_height, len(board["cuts"])))
-                # Update board space
+                board["cuts"].append((cut_width, cut_height))
+                # Update remaining width
                 board["width"] -= cut_width + blade_thickness
                 placed = True
                 break
@@ -32,19 +32,24 @@ def optimize_cuts(boards, cuts, blade_thickness):
 
 def visualize_cuts(boards):
     """Generate a visualization of the boards and cuts."""
-    fig, ax = plt.subplots(figsize=(12, len(boards) * 4))
+    fig, ax = plt.subplots(figsize=(10, len(boards) * 3))
     y_offset = 0
     colors = plt.cm.tab20.colors
 
     for i, board in enumerate(boards):
-        # Draw board
-        ax.add_patch(Rectangle((0, y_offset), board["width"], board["height"], edgecolor='black', fill=False, linewidth=2))
-        for j, (cw, ch, _) in enumerate(board["cuts"]):
+        # Draw the board
+        ax.add_patch(Rectangle((0, y_offset), board["width"], board["height"], edgecolor="black", fill=False))
+        ax.text(5, y_offset + board["height"] - 5, f"Board {i + 1}", fontsize=10, color="black")
+        
+        # Draw cuts
+        x_pos = 0
+        for j, (cut_width, cut_height) in enumerate(board["cuts"]):
             color = colors[j % len(colors)]
-            rect = Rectangle((0, y_offset), cw, ch, facecolor=color, edgecolor='black', alpha=0.7)
+            rect = Rectangle((x_pos, y_offset), cut_width, cut_height, facecolor=color, edgecolor="black", alpha=0.7)
             ax.add_patch(rect)
-            ax.text(cw / 2, y_offset + ch / 2, f"{cw}x{ch}", ha="center", va="center", fontsize=8)
-            y_offset += ch  # Adjust offset for next cut
+            ax.text(x_pos + cut_width / 2, y_offset + cut_height / 2, f"{cut_width}x{cut_height}", ha="center", va="center", fontsize=8)
+            x_pos += cut_width  # Update x position for next cut
+        y_offset += board["height"] + 10  # Update y position for the next board
 
     ax.set_aspect("equal")
     ax.axis("off")
@@ -57,7 +62,7 @@ def export_to_pdf(fig):
     pdf.set_font("Arial", size=12)
     pdf.cell(200, 10, txt="Optimized Cuts Visualization", ln=True, align="C")
 
-    fig.savefig("visualization.png", dpi=300, bbox_inches="tight")
+    fig.savefig("visualization.png", dpi=100, bbox_inches="tight")
     pdf.image("visualization.png", x=10, y=30, w=190)
     pdf.output("optimized_cuts.pdf")
     return "optimized_cuts.pdf"
