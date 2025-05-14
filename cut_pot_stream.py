@@ -102,7 +102,7 @@ def visualize_boards(boards):
         )
 
 # Streamlit App
-st.title("Cut List Optimizer with Hover Annotations")
+st.title("Cut List Orkun with Hover Annotations")
 
 st.sidebar.header("Input Parameters")
 board_input = st.sidebar.text_area(
